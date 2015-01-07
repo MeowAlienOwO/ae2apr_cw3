@@ -1,0 +1,4 @@
+stock=UNNC
+
+server=localhost:12345:TEST 1:paul:qqqq
+server=localhost:1233:DUMMY:john:qqqq

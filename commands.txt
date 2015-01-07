@@ -1,0 +1,20 @@
+Example commands for multiple directory structure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To run the tests:
+(go to project directory)
+
+java -cp bin/:lib/:lib-test/junit-4.11.jar:lib-test/hamcrest-core-1.3.jar org.junit.runner.JUnitCore zlizpd3.labtree.MyTestClass
+
+To compile program:
+(go to project directory)
+
+javac -cp bin/:lib/ -d bin/ src/Tree.java
+javac *.java -d ../bin/
+To compile the tests:
+(go to project directory)
+
+javac -cp bin/:lib/:lib-test/junit-4.11.jar:lib-test/hamcrest-core-1.3.jar -d bin/ test/MyTestClass.java
+
+
+javac -cp bin/:lib/:testlib/junit-4.11.jar:testlib/hamcrest-core-1.3.jar -d bin/ test/test.java
