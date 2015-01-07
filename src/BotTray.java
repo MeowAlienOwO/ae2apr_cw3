@@ -17,7 +17,7 @@
 // Status: 
 // Table of Contents: 
 // 
-//     Update #: 78
+//     Update #: 81
 // 
 
 // Code:
@@ -50,7 +50,7 @@ class BotTray implements Runnable{
 	    Image image = Toolkit.getDefaultToolkit().createImage(new MemoryImageSource(32, 32, pixels, 0, 32));
 
 
-	    PopupMenu popup = new PopupMenu();
+	    PopupMenu popup = new PopupMenu("Watcher Bot Menu");
 
 	    MenuItem exitItem = new MenuItem("Quit");
 	    exitItem.addActionListener(new ActionListener(){
@@ -82,7 +82,7 @@ class BotTray implements Runnable{
 	    LinkedList<String> messageQueue = (LinkedList<String>)BotSystem.getBotSystem().getMessageQueue();
 	    if(!messageQueue.isEmpty()){
 		String infor = messageQueue.poll();
-		System.out.println(infor);
+		System.out.println(infor + "tray infor");
 		icon.displayMessage("Chance", infor, TrayIcon.MessageType.INFO);
 	    }
 	}

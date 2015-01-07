@@ -16,7 +16,7 @@
 // Status: 
 // Table of Contents: 
 // 
-//     Update #: 273
+//     Update #: 339
 // 
 
 // Code:
@@ -47,16 +47,14 @@ class BotSystem{
     private static BotSystem system;
 
     private String path;
-    private ConfigFileReader config;
     private List<Communicator> communicators;
-    private Map<String, CompanyInfor> database;
     private LinkedList<String>  messageQueue;
+    private String stock;
     private BotTray tray;
     private boolean running;
 
     private BotSystem(){
 	this.communicators = new ArrayList<Communicator>();
-	this.database = new HashMap<String, CompanyInfor>();
 	this.messageQueue = new LinkedList<String>();
 	this.running = true;
     }
@@ -74,11 +72,12 @@ class BotSystem{
 	return messageQueue;
     }
 
+    public String getStock(){
+	return stock;
+    }
+
     // methods
     public void initialize(String path){
-	this.path = path;
-	setupUsers(path);
-	createTray();
 	
 	Runtime.getRuntime().addShutdownHook(new Thread(){
 		@Override
@@ -89,67 +88,105 @@ class BotSystem{
 		    
 		}
 	    });
+	this.path = path;
+	setCommunicators(path);
+	createTray();
+	System.out.println("Number of users:" + communicators.size());
+
     }
     public void work(){
 	Communicator communicator;
 	while(running){
 	    for(int i = 0; i < communicators.size(); i++){
 		communicator = communicators.get(i);
-		if(communicator.isChanged()){
-		    updateDatabase(communicator);
+		Queue<String[]> tickMsg = communicator.getTickMsg();
+		while(!tickMsg.isEmpty()){
+		    communicator.updateAverage(tickMsg.poll());
+		    updateMsgQueue();
 		}
 	    }
-	}
-    }
-
-    private void updateDatabase(Communicator communicator){
-	Iterator<String> companyItr = communicator.getCompanySet().iterator();
-	String company;
-	String server;
-	int price;
-	
-	while(companyItr.hasNext()){
-	    company = companyItr.next();
-	    price   = communicator.getAveragePrice(company);
-	    server  = communicator.getServerName();
-	    if(!database.containsKey(company)){
-		database.put(company, 
-			     new CompanyInfor(
-					      server,
-					      price,
-					      server,
-					      price));
-	    }else{
-		CompanyInfor infor = database.get(company);
-		// update information while it is the max/min in history.
-		// the max and min shouldn't happen in same server
-		if(price > infor.maxprice && server != infor.minserver){
-		    infor.maxprice = price;
-		    infor.maxserver = server;
-		}else if(price < infor.minprice && server != infor.maxserver){
-		    infor.minprice = price;
-		    infor.minserver = server;
-		}
-
-		if((server.equals(infor.maxserver)
-		    || server.equals(infor.minserver))
-		   && infor.maxprice - infor.minprice > 2){
-		    synchronized(messageQueue){
-
-			String message = "Opportunity between "
-					 + infor.maxserver + " (" 
-					 + infor.maxprice + ") and " 
-					 + infor.minserver + " (" 
-			    + infor.minprice + ")\n";
-			// System.out.println(message);
-			messageQueue.add(message);
-		    }
-		}
-	    }
-	}
 	    
-	communicator.setChanged(false);
+	}
     }
+
+    private void updateMsgQueue(){
+	assert communicators.size() > 1;
+
+	String maxserver = "";
+	String minserver = "";
+	int maxprice = Integer.MIN_VALUE;
+	int minprice = Integer.MAX_VALUE;
+	for(int i = 0; i < communicators.size(); i++){
+	    Communicator communicator = communicators.get(i);
+	    int price = communicator.getAverage();
+	    String server = communicator.getServerName(); 
+	    if(price > maxprice){
+		maxprice = price;
+		maxserver = server;
+	    }else if(price < minprice){
+		minprice = price;
+		minserver = server;
+	    }
+	}
+
+	if(maxprice - minprice > 2){
+	    String message = "Opportunity between "
+		+ maxserver + " (" 
+		+ maxprice + ") and " 
+		+ minserver + " (" 
+		+ minprice + ")\n";
+	    messageQueue.add(message);
+
+	}
+    }
+    // private void updateDatabase(Communicator communicator){
+    // 	Iterator<String> companyItr = communicator.getCompanySet().iterator();
+    // 	String company;
+    // 	String server;
+    // 	int price;
+	
+    // 	while(companyItr.hasNext()){
+    // 	    company = companyItr.next();
+    // 	    price   = communicator.getAveragePrice(company);
+    // 	    server  = communicator.getServerName();
+    // 	    if(!database.containsKey(company)){
+    // 		database.put(company, 
+    // 			     new CompanyInfor(
+    // 					      server,
+    // 					      price,
+    // 					      server,
+    // 					      price));
+    // 	    }else{
+    // 		CompanyInfor infor = database.get(company);
+    // 		// update information while it is the max/min in history.
+    // 		// the max and min shouldn't happen in same server
+    // 		if(price > infor.maxprice && server != infor.minserver){
+    // 		    infor.maxprice = price;
+    // 		    infor.maxserver = server;
+    // 		}else if(price < infor.minprice && server != infor.maxserver){
+    // 		    infor.minprice = price;
+    // 		    infor.minserver = server;
+    // 		}
+
+    // 		if((server.equals(infor.maxserver)
+    // 		    || server.equals(infor.minserver))
+    // 		   && infor.maxprice - infor.minprice > 2){
+    // 		    synchronized(messageQueue){
+
+    // 			String message = "Opportunity between "
+    // 					 + infor.maxserver + " (" 
+    // 					 + infor.maxprice + ") and " 
+    // 					 + infor.minserver + " (" 
+    // 			    + infor.minprice + ")\n";
+    // 			// System.out.println(message);
+    // 			messageQueue.add(message);
+    // 		    }
+    // 		}
+    // 	    }
+    // 	}
+	    
+    // 	communicator.setChanged(false);
+    // }
 
     public void end(){
     	closeConnection();
@@ -158,9 +195,10 @@ class BotSystem{
 
     }
 
-    private void setupUsers(String path){
-	
+    private void setCommunicators(String path){
+	ConfigFileReader config;
 	config = new ConfigFileReader(path);
+	this.stock = config.getStock();
 	communicators = new ArrayList<Communicator>();
 	for(int i = 0; i < config.getConfigDataList().size(); i++){
 	    communicators.add(new Communicator(config.getConfigDataList().get(i)));

@@ -16,7 +16,7 @@
 // Status: 
 // Table of Contents: 
 // 
-//     Update #: 227
+//     Update #: 328
 // 
 
 // Code:
@@ -27,71 +27,59 @@ import java.net.*;
 import java.util.*;
 
 class Communicator implements Runnable{
-    
-    private static final int VOLUMN = 0;
-    private static final int PRICE  = 1;
-
     private ConfigData configData = null;
+    private Queue<String[]> tickMsg = null;
     private Socket socket = null;
     private BufferedReader br;
     private OutputStreamWriter osw;
-    private Map<String, int[]> companyMap; // store <company, [VOLUMN, PRICE]>
-    private boolean changed;		   // flag to show whether the 
-                                           // company map changed
+    private int average = 0;
+    private int volumn = 0;
+    private boolean changed;
+
+
     // constructor
     public Communicator(ConfigData configData){
 	this.configData = configData;
-	this.companyMap = new HashMap<String, int[]>();
-	setChanged(false);
+	this.tickMsg = new LinkedList<String[]>();
+    }
 
-    }
-    // setter
-    public void setChanged(boolean changed){
-	this.changed = changed;
-    }
     // getter
     public String getServerName(){
 	return configData.getName();
     }
 
-    public boolean hasCompany(String company){
-	return companyMap.containsKey(company);
+    public int getAverage(){
+	return average;
     }
-    
-    public Set<String> getCompanySet(){
-	return companyMap.keySet();
+    public int getVolumn(){
+	return volumn;
     }
-    
-    public boolean isChanged(){
-	return changed;
+    public Queue<String[]> getTickMsg(){
+	return tickMsg;
     }
-    public int getAveragePrice(String company){
-	return companyMap.get(company)[PRICE];
-    }
-    
 
     // methods
     @Override
     public void run(){
 	connect();
-
 	login();
 	try {
 	    while(true){
 		String line = br.readLine();
-		String[] splited = line.split(" ");
-
-		if(splited[0].equals("ERROR"))
-		    throw new Exception("serverError!");
-		if(splited[0].equals("TICK")){
-		    synchronized(companyMap){
-			updateAverage(splited);
+		if(line != null){ // case of the main thread executed logout but the
+		                  // thread is reading -> read null line.
+		    
+		    String[] splited = line.split(" ");
+		    if(splited[0].equals("ERROR"))
+			throw new Exception("serverError!");
+		    if(splited[0].equals("TICK")
+		       && splited[1].equals(BotSystem.getBotSystem().getStock())){
+			tickMsg.add(splited);
 		    }
 		}
 	    }
-	}
-	catch (SocketException se) {
-	    // exit the loop
+	}catch(SocketException se) {
+	    // exit thread
 	}catch(IOException ioe){
 	    System.out.println("Error " + ioe.getMessage());
 	    ioe.printStackTrace();
@@ -107,13 +95,11 @@ class Communicator implements Runnable{
 
     public void stop(){
 	try{
-
 	    osw.write("LOGOUT\n");
 	    osw.flush();
 	    socket.close();
-
 	}catch(SocketException se){
-	
+	    // exit
 	}catch(IOException ioe){
 	    System.out.println("Error " + ioe.getMessage());
 	    ioe.printStackTrace();
@@ -150,38 +136,27 @@ class Communicator implements Runnable{
 	}
     }
 
-    private void updateAverage(String[] tick){
-	assert tick[0].equals("TICK") && tick.length == 4;
-
+    public void updateAverage(String[] tick){
+	assert tick[0].equals("TICK") 
+	    && tick[1].equals(BotSystem.getBotSystem().getStock())
+	    && tick.length == 4;
 
 	String company = tick[1];
-	int    volumn  = Integer.parseInt(tick[2]);
-	int    price   = Integer.parseInt(tick[3]);
-	int[]  pair    = new int[2];
-	if(!hasCompany(company)){
-	    pair[VOLUMN] = volumn;
-	    pair[PRICE] = price;
-	    companyMap.put(company, pair);
+	int    tickVolumn  = Integer.parseInt(tick[2]);
+	int    tickPrice   = Integer.parseInt(tick[3]);
+	// core algorithm to calculate new average
+	if(tickVolumn >= 5){
+	    average = tickPrice;
+	    volumn = 5;
+	}else if(tickVolumn + volumn > 5){
+	    average  = (average * (10 - (tickVolumn + volumn)) + tickVolumn * tickPrice) / 5;
+	    volumn = 5;
 	}else{
-	    pair = companyMap.get(company);
-	    assert volumn > 0 && pair[VOLUMN] > 0;
-	    if(volumn >= 5){
-		pair[VOLUMN] = 5;
-		pair[PRICE]  = price;
-	    }else if(pair[VOLUMN] + volumn > 5){
-		pair[VOLUMN] = 5;
-		pair[PRICE]  = (pair[PRICE] * (10 - (pair[VOLUMN] + volumn)) + volumn * price) / 5;		
-	    }else{
-		pair[PRICE] = (pair[PRICE] * pair[VOLUMN] + price * volumn) / (volumn + pair[VOLUMN]);
-	    }
-	    companyMap.replace(company, pair);
+	    average = (average * volumn + tickPrice * tickVolumn) / (tickVolumn + volumn);
+	    volumn = volumn + tickVolumn;
 	}
 
-	setChanged(true);
-
     }
-
-    
 }
 
 

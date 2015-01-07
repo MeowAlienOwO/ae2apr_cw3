@@ -16,7 +16,7 @@
 // Status: 
 // Table of Contents: 
 // 
-//     Update #: 99
+//     Update #: 100
 // 
 
 // Code:
@@ -89,11 +89,7 @@ class ConfigFileReader{
 	}
 
     }
-    // getter
-    public List<String> getConfigString(){
-	return configList;
-    }
-    
+    // getter    
     public List<ConfigData> getConfigDataList(){
 	return dataList;
     }
